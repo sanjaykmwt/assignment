@@ -1,0 +1,321 @@
+import React from 'react';
+import { connect } from 'react-redux';
+import {compose} from "recompose";
+import {withStyles} from "@material-ui/core/styles";
+import {useStyles} from "./style";
+import {withRouter} from "react-router-dom";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead, 
+    TableRow,TableFooter,TablePagination,
+    Typography,
+    
+    MenuItem,
+    Menu,
+    IconButton,
+    Tooltip,
+    Paper,Toolbar,
+    InputBase,
+    Button
+} from '@material-ui/core';
+import {MoreVert as MoreVertIcon, Search as SearchIcon,
+    // FilterList as FilterListIcon
+} from "@material-ui/icons";
+import TablePaginationModel  from "../../../Common/Pagination/index";
+import UserAction from "../../../../store/actions/user.js";
+import DialogAction from "../../../../store/actions/dialog";
+import CircularProgressAction from "../../../../store/actions/circularProgress";
+
+
+class TeacherList extends React.Component{
+
+    constructor(props){
+        super(props)
+        this.state = {
+            'userlistData':[],
+            'page':0,
+            'rowsPerPage':10,
+            'menuAnchorElem':null,
+            'current_id':'',
+            'count':0,
+            'filter':{
+                'search_query':'',
+                'page_size':10,
+            },
+        }  
+        this.setAnchorEl                =   this.setAnchorEl.bind(this);
+        this.handleMenu                 =   this.handleMenu.bind(this);
+        this.handleClose                =   this.handleClose.bind(this);  
+        this.handleChangePage           =   this.handleChangePage.bind(this); 
+        this.handleChangeRowsPerPage    =   this.handleChangeRowsPerPage.bind(this);  
+        this.fetch                      =   this.fetch.bind(this);
+        this.userView                   =   this.userView.bind(this);
+        this.delete                     =   this.delete.bind(this);
+
+    }
+    componentWillMount(){
+        this.fetch()
+    }
+    
+    componentWillReceiveProps(nextProps){
+        var me      =   this;
+        if(this.props.fetchData.fetchProg === true && nextProps.fetchData.fetchProg === false ){
+            me.props.progress(false);
+            if(nextProps.fetchData.error === null){
+                var user    =   nextProps.fetchData.fetchUser; 
+                var totalUser   =   nextProps.fetchData.totalUser
+                this.setState({userlistData:user,count:totalUser});
+            } else {
+                var error   =   nextProps.fetchData.error;
+                var message     =   error.message;
+                if(error.error !== undefined){
+                    me.props.showAlert(
+                        error.error,
+                        message,
+                        {
+                            label:"OK",
+                            onClick:()=>me.props.hideAlert()
+                        }
+                    )
+                } else if(error.status !== 401 && error.status !== 401){
+                    var f_message     =   error.message;
+                    me.props.showAlert(
+                        "ERROR",
+                        f_message,
+                        {
+                            label:"OK",
+                            onClick:()=>me.props.hideAlert()
+                        }
+                    )
+                }
+            }
+        }
+
+        if (this.props.fetchData.deleteProg === true && nextProps.fetchData.deleteProg === false) {
+            me.props.progress(false);
+            if (nextProps.fetchData.deleteerror === null) {
+                me.props.hideConfirm()
+                this.fetch()
+            } else {
+                var d_error = nextProps.fetchData.deleteerror;
+                var d_message = error.message;
+
+                if (error.error !== undefined) {
+                    me.props.showAlert(
+                        d_error.error,
+                        d_message,
+                        {
+                            label: "OK",
+                            onClick: () => me.props.hideAlert()
+                        }
+                    )
+                } else {
+                    var ds_message = error.message;
+                    me.props.showAlert(
+                        "ERROR",
+                        ds_message,
+                        {
+                            label: "OK",
+                            onClick: () => me.props.hideAlert()
+                        }
+                    )
+                }
+            }
+        }
+    }
+    
+    
+    fetch(){
+        var me    =   this;
+        me.state.filter['page']=me.state.page;
+        me.props.progress(true);
+        me.props.fetchUser(me.state.filter)
+        
+    }
+    userView(){
+        var id   =   this.state.current_id;
+        this.props.history.push("/app/user/"+id+"/view")
+    }
+    
+    setAnchorEl(elem){
+        this.setState({
+            menuAnchorElem:elem
+        })
+    }
+    handleMenu(event) {
+        this.setAnchorEl(event.currentTarget);
+    }
+    
+    handleClose() {
+        this.setAnchorEl(null);
+    }
+
+    handleChangePage(event, newPage) {
+        this.setState({'page':newPage},function(){
+            this.fetch();
+        })
+    }
+    handleChangeRowsPerPage(event) {
+        var me  =   this;
+        me.state.filter.page_size =   parseInt(event.target.value,10);
+        me.setState({rowsPerPage:parseInt(event.target.value,10),filter:me.state.filter},function(){
+            me.fetch();
+        })
+        
+    }
+
+    delete() {
+        var me = this;
+        var id = this.state.current_id;
+        me.props.showConfirm(
+            "Confirmation",
+            "Are you sure you want to delete user",
+            {
+                label: "cancel",
+                onClick: () => me.props.hideConfirm()
+            },
+            {
+                label: "OK",
+                onClick: () => {
+                    me.props.hideConfirm();
+                    me.props.progress(true);
+                    me.props.delete(id)
+                }
+            }
+        )
+    }
+
+    render(){
+        const classes       =  this.props.classes;
+        var open            =  Boolean(this.state.menuAnchorElem);
+        var state           =  this.state;
+        var page_index    =   ((state.page)*state.filter.page_size);
+        return(
+                <div className={classes.root}>
+                    <Paper elevation={3} className={classes.root}>
+                        <Typography className={classes.title} variant="h6" id="tableTitle">
+                            Teachers
+                        </Typography>
+                            <Toolbar style={{paddingLeft: "0px"}}>
+                                {/* <div >
+                                    <Button variant="contained" size="small" className={classes.buttonAdd} onClick={()=>{
+                                         this.props.history.push("/app/user/add")
+                                        }}>
+                                        Add Teacher
+                                    </Button>
+                                </div> */}
+                                <div className={classes.spacer} />
+                                <div className={classes.actions}>
+                                    <Tooltip title="Search">
+                                        <div className={classes.search}>
+                                            <div className={classes.searchIcon}>
+                                            <SearchIcon />
+                                            </div>
+                                            <InputBase
+                                            placeholder="Search…"
+                                            classes={{
+                                                root: classes.inputRoot,
+                                                input: classes.inputInput,
+                                            }}
+                                            inputProps={{ 'aria-label': 'Search' }}
+                                            value={state.filter.search_query}
+                                            onChange={(event)=>{
+                                                state.filter['search_query'] = event.target.value
+                                                this.setState({filter:state.filter})
+                                            }}
+                                            onKeyDown={(e)=>{
+                                                if(e.keyCode === 13){
+                                                    this.fetch()
+                                                }
+                                            }}
+                                            />
+                                        </div>
+                                    </Tooltip>
+                                    {/* <Tooltip title="Filter list">
+                                        <IconButton aria-label="Filter list">
+                                            <FilterListIcon />
+                                        </IconButton>
+                                    </Tooltip> */}
+                                </div>
+                            </Toolbar>
+                            <table className={classes.table}>
+                                <thead className={classes.headDark}>
+                                    <tr>
+                                    <th width="5%" className={classes.cellH}>#</th>
+                                    <th width="10%"className={classes.cellH}>Name</th>
+                                    <th width="20%" className={classes.cellH}>Email</th>  
+                                    <th width="10%" className={classes.cellH}>Phone</th>  
+                                    <th width="10%" className={classes.cellH}>Gender</th>  
+                                    <th width="10%" className={classes.cellH}>Country</th>  
+                                    <th width="10%" className={classes.cellH}>City</th>
+                                    <th width="10%" className={classes.cellH}>Qualification</th>  
+                                    <th width="10%" className={classes.cellH}>Total exp</th>  
+                                    <th width="10%" className={classes.cellH}>Online exp</th>
+                                    <th width="10%" className={classes.cellH}>Status</th>
+                                    <th width="5%" className={classes.cellH}>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {this.state.userlistData.map((item,k)=>{
+                                        return <tr key={k} style={{border:"solid 1px #000"}}>
+                                        <td className={classes.cell}>{k+1}</td>
+                                        <td className={classes.cell}>Sanjay</td>
+                                        <td className={classes.cell}>sanjaykmtbalo@gmail.com</td>
+                                        <td className={classes.cell}>9125478693</td>
+                                        <td className={classes.cell}>Male</td>
+                                        <td className={classes.cell}>India</td>
+                                        <td className={classes.cell}>Bangalore</td>
+                                        <td className={classes.cell}>M.A in English</td>
+                                        <td className={classes.cell}>10</td>
+                                        <td className={classes.cell}>15</td>
+                                        <td className={classes.cell}>Active</td>
+                                        <td className={classes.cell}>Action</td>
+                                        </tr>
+                                    })}
+                                </tbody>
+                                <tr>
+                                <TablePagination
+                                    classes={{root:classes.paginate}}
+                                    rowsPerPageOptions={[5, 10, 25]}
+                                    colSpan={8}
+                                    count={state.count}
+                                    rowsPerPage={this.state.rowsPerPage}
+                                    page={this.state.page}
+                                    SelectProps={{
+                                    inputProps: { 'aria-label': 'rows per page' },
+                                    native: true,
+                                    }}
+                                    onChangePage={this.handleChangePage}
+                                    onChangeRowsPerPage={this.handleChangeRowsPerPage}
+                                    ActionsComponent={TablePaginationModel}
+                                />
+                                </tr>
+                            </table> 
+                                
+                            {/* <FabIcon method={"/app/user/add"}/> */}
+                     </Paper>
+                </div>
+        
+        );
+    }
+}
+
+export default compose(
+    withRouter,
+    withStyles(useStyles)
+  )(connect((state, props) => {
+    //State to Prop
+    return {
+        fetchData:state.userReducer,
+    };
+  }, {
+    showAlert:DialogAction.showAlert,
+    hideAlert:DialogAction.hideAlert,
+    showConfirm: DialogAction.showConfirm,
+    hideConfirm: DialogAction.hideConfirm,
+    progress:CircularProgressAction.progress,
+    fetchUser:UserAction.fetchUser,
+    delete:UserAction.delete
+  })(TeacherList))
